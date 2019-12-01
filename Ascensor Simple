@@ -1,0 +1,212 @@
+#include <Servo.h>
+Servo myservo;
+int pinServo = 9;
+const int pinoCLK = 10; //PINO DIGITAL (CLK)
+const int pinoDT = 11;  //PINO DIGITAL (DT)
+const int pinCarrera_fin = 8;
+const int pinCarrera_inicio = 12;
+const int pinLed_1 =  4;
+const int pinLed_2 =  3;
+const int pinLed_3 =  2;
+const int pinBoton_1 =  7;
+const int pinBoton_2 =  6;
+const int pinBoton_3 =  5;
+int pos_grado = 180;
+int contadorPos = 0;  
+int contadorPos_aux = 0;
+int ultPosicao; 
+int leituraCLK; 
+boolean bCW; 
+boolean es_carrera_fin = false;
+boolean es_carrera_inicio = false;
+boolean es_piso_3 = false;
+boolean es_piso_2 = false;
+boolean es_piso_1 = false;
+boolean es_error_calibracion = false;
+int sube_rapido = 0;
+int sube_lento = 136;
+int baja_rapido = 180;
+int baja_lento = 155;
+int iniciar_lento_servo = 10;
+int parar_servo = 145;
+int pinLed_torre = 13;
+int encoder_piso_1=5;
+int encoder_piso_2=180;
+int encoder_piso_3=354;
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  myservo.attach(pinServo);
+  myservo.write(pos_grado);
+  pinMode(pinCarrera_fin, INPUT);
+  pinMode(pinLed_1, OUTPUT);
+  pinMode(pinLed_2, OUTPUT);
+  pinMode(pinLed_3, OUTPUT);
+  pinMode(pinLed_torre, OUTPUT);
+  pinMode (pinoCLK, INPUT);
+  pinMode (pinoDT, INPUT);
+  pinMode (pinBoton_1, INPUT);
+  pinMode (pinBoton_2, INPUT);
+  pinMode (pinBoton_3, INPUT);
+  digitalWrite(pinLed_torre, HIGH);
+  ultPosicao = digitalRead(pinoCLK);
+}
+
+void loop() {
+  leer_entrada();
+  lectura_encoder();
+  final_carrera_fin();
+  final_carrera_inicio();
+  ir_a_piso_1();
+  ir_a_piso_2();
+  ir_a_piso_3();
+  boton_cabina();
+  error_calibracion();
+}
+void final_carrera_fin() {
+  if (digitalRead(pinCarrera_fin) == HIGH) {
+    es_carrera_fin = true;
+    contadorPos = 0;
+    pos_grado = sube_lento;
+    myservo.write(pos_grado);
+  }
+  if (es_carrera_fin) {
+    if (contadorPos == iniciar_lento_servo) {
+      pos_grado = parar_servo;
+      myservo.write(pos_grado);
+      es_carrera_fin = false;
+      es_error_calibracion = false;
+      es_piso_3 = false;
+      es_piso_2 = false;
+      es_piso_1 = false;
+      digitalWrite(pinLed_1, LOW);
+      digitalWrite(pinLed_2, LOW);
+      digitalWrite(pinLed_3, LOW);
+    }
+  }
+}
+void error_calibracion() {
+  if (es_error_calibracion) {
+    //   digitalWrite(pinLed_1, HIGH);
+    //   digitalWrite(pinLed_2, HIGH);
+    //   digitalWrite(pinLed_3, HIGH);
+  }
+}
+void final_carrera_inicio() {
+  if (digitalRead(pinCarrera_inicio) == HIGH) {
+    // es_carrera_inicio = true;
+    contadorPos = encoder_piso_3+6;
+    contadorPos_aux = contadorPos;
+    pos_grado = baja_rapido;
+    myservo.write(pos_grado);
+    es_error_calibracion = true;
+  }
+}
+void leer_entrada() {
+  if (Serial.available() > 0) {
+    char ent = Serial.read();
+    if (ent == 'a') {
+      if (!es_piso_2 && !es_piso_3) {
+        es_piso_1 = true;
+        digitalWrite(pinLed_1, HIGH);
+      }
+    }
+    if (ent == 's') {
+      if (!es_piso_1 && !es_piso_3) {
+        es_piso_2 = true;
+        digitalWrite(pinLed_2, HIGH);
+      }
+    }
+    if (ent == 'd') {
+      if (!es_piso_2 && !es_piso_1) {
+        es_piso_3 = true;
+        digitalWrite(pinLed_3, HIGH);
+      }
+    }
+  }
+}
+void boton_cabina() {
+  if (digitalRead(pinBoton_1) == HIGH) {
+    if (!es_piso_2 && !es_piso_3) {
+      es_piso_1 = true;
+      digitalWrite(pinLed_1, HIGH);
+    }
+  }
+  if (digitalRead(pinBoton_2) == HIGH) {
+    if (!es_piso_1 && !es_piso_3) {
+      es_piso_2 = true;
+      digitalWrite(pinLed_2, HIGH);
+    }
+  }
+  if (digitalRead(pinBoton_3) == HIGH) {
+    if (!es_piso_2 && !es_piso_1) {
+      es_piso_3 = true;
+      digitalWrite(pinLed_3, HIGH);
+    }
+  }
+}
+void ir_a_piso_1() {
+  if (es_piso_1) {
+    int pos_piso_1 = encoder_piso_1;
+    validar_mover_servo(pos_piso_1, pinLed_1);
+    if (contadorPos == pos_piso_1) {
+      es_piso_1 = false;
+    }
+    myservo.write(pos_grado);
+  }
+}
+void ir_a_piso_2() {
+  if (es_piso_2) {
+    int pos_piso_2 = encoder_piso_2;
+    validar_mover_servo(pos_piso_2, pinLed_2);
+    if (contadorPos == pos_piso_2) {
+      es_piso_2 = false;
+    }
+    myservo.write(pos_grado);
+  }
+}
+void ir_a_piso_3() {
+  if (es_piso_3) {
+    int pos_piso_3 = encoder_piso_3;
+    validar_mover_servo(pos_piso_3, pinLed_3);
+    if (contadorPos == pos_piso_3) {
+      es_piso_3 = false;
+    }
+    myservo.write(pos_grado);
+  }
+}
+void validar_mover_servo(int pos_piso, int pinLed) {
+  if (digitalRead(pinCarrera_inicio) == HIGH) {
+    pos_grado = baja_rapido;
+  } else {
+    if (contadorPos < (pos_piso - iniciar_lento_servo)) {
+      pos_grado = sube_rapido;
+    }
+    if (contadorPos > (pos_piso - iniciar_lento_servo) && (contadorPos < (pos_piso))) {
+      pos_grado = sube_lento;
+    }
+    if (contadorPos > (pos_piso + iniciar_lento_servo)) {
+      pos_grado = baja_rapido;
+    }
+    if (contadorPos < (pos_piso + iniciar_lento_servo) && (contadorPos > (pos_piso))) {
+      pos_grado = baja_lento;
+    }
+    if (contadorPos == pos_piso) {
+      pos_grado = parar_servo;
+      digitalWrite(pinLed, LOW);
+    }
+  }
+}
+void lectura_encoder() {
+  leituraCLK = digitalRead(pinoCLK);
+  if (leituraCLK != ultPosicao) {
+    if (digitalRead(pinoDT) != leituraCLK) {
+      contadorPos ++;
+    } else {
+      contadorPos--;
+    }
+    Serial.println(contadorPos);
+  }
+  ultPosicao = leituraCLK;
+
+}
